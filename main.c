@@ -41,7 +41,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
         	return SDL_APP_FAILURE;
     	}
 	/* Create the window */
-	if (!SDL_CreateWindowAndRenderer("Hello World", WIN_SIZE, WIN_SIZE, SDL_WINDOW_TRANSPARENT | SDL_WINDOW_BORDERLESS, &window, &renderer)) {
+	if (!SDL_CreateWindowAndRenderer("Flashbang!", WIN_SIZE, WIN_SIZE, SDL_WINDOW_TRANSPARENT | SDL_WINDOW_BORDERLESS, &window, &renderer)) {
 	    SDL_Log("Couldn't create window and renderer: %s", SDL_GetError());
 	    return SDL_APP_FAILURE;
 	}
