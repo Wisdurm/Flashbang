@@ -4,6 +4,7 @@
 #include <SDL3_image/SDL_image.h>
 #include <SDL3_mixer/SDL_mixer.h>
 #include <stdbool.h>
+#include <linux/limits.h>
 
 static SDL_Window *window = NULL;
 static SDL_Renderer *renderer = NULL;
@@ -35,6 +36,7 @@ int flashProgression = 0;
 /* This function runs once at startup. */
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 {
+	const char* wcd = SDL_GetBasePath();
 	// Init sdl
 	if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO)) {
         	SDL_Log("Couldn't initialize SDL: %s", SDL_GetError());
@@ -47,18 +49,28 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 	}
 	SDL_SetRenderVSync(renderer, 1);
 	// Load texture
-	flashbangTexture = IMG_LoadTexture(renderer, "flashbang.png");
+	char* pathFlash = SDL_malloc(PATH_MAX);
+	SDL_snprintf(pathFlash, PATH_MAX, "%sflashbang.png", wcd);
+	flashbangTexture = IMG_LoadTexture(renderer, pathFlash);
+	SDL_free(pathFlash);
 	// Audio
 	if (!Mix_OpenAudio(0, NULL)) {
         	SDL_Log("Couldn't open audio: %s\n", SDL_GetError());
 	}
 	// Wav files
-	bang = Mix_LoadWAV("bang.wav");
+	char* pathBang = SDL_malloc(PATH_MAX);
+	SDL_snprintf(pathBang, PATH_MAX, "%sbang.wav", wcd);
+	bang = Mix_LoadWAV(pathBang);
 	if (bang == NULL)
 		SDL_Log("Couldn't load \"bang.wav\": %s\n", SDL_GetError());
-	bounce = Mix_LoadWAV("bounce.wav");
+	SDL_free(pathBang);
+
+	char* pathBounce = SDL_malloc(PATH_MAX);
+	SDL_snprintf(pathBounce, PATH_MAX, "%sbounce.wav", wcd);
+	bounce = Mix_LoadWAV(pathBounce);
 	if (bounce == NULL)
 		SDL_Log("Couldn't load \"bounce.wav\": %s\n", SDL_GetError());
+	SDL_free(pathBounce);
 
 	// Screen size
 	screenWidth = 1920;
