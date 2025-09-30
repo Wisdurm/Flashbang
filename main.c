@@ -4,7 +4,13 @@
 #include <SDL3_image/SDL_image.h>
 #include <SDL3_mixer/SDL_mixer.h>
 #include <stdbool.h>
+
+#ifdef WIN32
+#define PATH_MAX 260 // bruhhhhh
+#include "Windows.h"
+#else
 #include <linux/limits.h>
+#endif
 
 static SDL_Window *window = NULL;
 static SDL_Renderer *renderer = NULL;
@@ -12,8 +18,9 @@ static SDL_Renderer *renderer = NULL;
 // Textures
 static SDL_Texture* flashbangTexture = NULL;
 // Audio
-static Mix_Chunk *bang = NULL;
-static Mix_Chunk *bounce = NULL;
+static MIX_Audio *bang = NULL;
+static MIX_Audio *bounce = NULL;
+static MIX_Mixer* device = NULL;
 
 static int screenWidth, screenHeight;
 
@@ -31,11 +38,19 @@ float x, y;
 float xVel, yVel;
 int bounces = 0;
 bool flash = false;
-int flashProgression = 0;
+float flashProgression = 0;
+
+static int deltatimeMultiplier = 500; // I hate everything about programming. Every. single. aspect
 
 /* This function runs once at startup. */
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 {
+	ShowWindow(GetConsoleWindow(),0);
+	if (argc > 1)
+	{
+		deltatimeMultiplier = SDL_atoi(argv[1]);
+	}
+
 	const char* wcd = SDL_GetBasePath();
 	// Init sdl
 	if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO)) {
@@ -54,20 +69,25 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 	flashbangTexture = IMG_LoadTexture(renderer, pathFlash);
 	SDL_free(pathFlash);
 	// Audio
-	if (!Mix_OpenAudio(0, NULL)) {
-        	SDL_Log("Couldn't open audio: %s\n", SDL_GetError());
+	if (!MIX_Init()) {
+        SDL_Log("MIX_Init failed: %s\n", SDL_GetError());
+	}
+	device = MIX_CreateMixerDevice(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, NULL);
+	if (!device)
+	{
+        SDL_Log("Audio device failed: %s\n", SDL_GetError());
 	}
 	// Wav files
 	char* pathBang = SDL_malloc(PATH_MAX);
 	SDL_snprintf(pathBang, PATH_MAX, "%sbang.wav", wcd);
-	bang = Mix_LoadWAV(pathBang);
+	bang = MIX_LoadAudio(device,pathBang, true);
 	if (bang == NULL)
 		SDL_Log("Couldn't load \"bang.wav\": %s\n", SDL_GetError());
 	SDL_free(pathBang);
 
 	char* pathBounce = SDL_malloc(PATH_MAX);
 	SDL_snprintf(pathBounce, PATH_MAX, "%sbounce.wav", wcd);
-	bounce = Mix_LoadWAV(pathBounce);
+	bounce = MIX_LoadAudio(device, pathBounce, true);
 	if (bounce == NULL)
 		SDL_Log("Couldn't load \"bounce.wav\": %s\n", SDL_GetError());
 	SDL_free(pathBounce);
@@ -96,10 +116,10 @@ SDL_AppResult SDL_AppIterate(void *appstate)
 {
 	// Deltatime
 	LAST = NOW;
-    	NOW = SDL_GetPerformanceCounter();
+    NOW = SDL_GetPerformanceCounter();
 
-    	deltaTime = (double)((NOW - LAST) * 4000 / (double)SDL_GetPerformanceFrequency());
-    	deltaTime = SDL_clamp(deltaTime, 0.1, 9);
+    deltaTime = (double)((NOW - LAST) * deltatimeMultiplier / (double)SDL_GetPerformanceFrequency());
+    deltaTime = SDL_clamp(deltaTime, 0.5, 5);
 
 	// Flashbang code
 	if (!flash)
@@ -114,7 +134,7 @@ SDL_AppResult SDL_AppIterate(void *appstate)
 			yVel += TICK * deltaTime;
 		else
 		{
-			Mix_PlayChannel(0, bounce, 0);
+			MIX_PlayAudio(device, bounce);
 			bounces++;
 			yVel = ((float)-7/(bounces));
 			y += yVel * 3;
@@ -132,8 +152,8 @@ SDL_AppResult SDL_AppIterate(void *appstate)
 
 		if (bounces > 3)
 		{
-			Mix_HaltChannel(0);
-			Mix_PlayChannel(0, bang, 0);
+			MIX_StopAllTracks(device, 0);
+			MIX_PlayAudio(device, bang);
 			SDL_HideCursor();
 			SDL_SetWindowFullscreen(window, true);
 			SDL_SetWindowAlwaysOnTop(window, true);
@@ -142,7 +162,7 @@ SDL_AppResult SDL_AppIterate(void *appstate)
 	}
 	else
 	{
-		flashProgression++;
+		flashProgression += deltaTime/10; // Never doing a single project like this ever again
 		SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
 		if (flashProgression > FLASH_LENGTH/3)
 			SDL_SetWindowOpacity(window, 1-((1.0f/(FLASH_LENGTH/3))*(flashProgression-(FLASH_LENGTH/3))));
@@ -157,8 +177,9 @@ SDL_AppResult SDL_AppIterate(void *appstate)
 /* This function runs once at shutdown. */
 void SDL_AppQuit(void *appstate, SDL_AppResult result)
 {
-	Mix_FreeChunk(bang);
-	Mix_FreeChunk(bounce);
-	Mix_CloseAudio();
+	MIX_DestroyAudio(bang);
+	MIX_DestroyAudio(bounce);
+	MIX_DestroyMixer(device);
+	MIX_Quit();
 }
 
