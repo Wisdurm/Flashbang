@@ -45,7 +45,9 @@ static int deltatimeMultiplier = 500; // I hate everything about programming. Ev
 /* This function runs once at startup. */
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 {
+#ifdef WIN32
 	ShowWindow(GetConsoleWindow(),0);
+#endif
 	if (argc > 1)
 	{
 		deltatimeMultiplier = SDL_atoi(argv[1]);
